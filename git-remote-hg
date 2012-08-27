@@ -1,0 +1,73 @@
+#!/usr/bin/env python2
+"""Used by git-remote to interact with remote Mercurial repositories.
+
+This command should not be run by the user.  Rather, it is invoked by
+the Git core when accessing remotes of the form `hg::HGURL', where
+HGURL is any valid Mercurial repository URL.
+
+Executed with two arguments: the name of the remote, and the remote
+URL.  (For URLs specified directly on the command line, the name of
+the remote is `hg::HGURL'.)
+"""
+
+import sys
+from mercurial import hg, util
+
+def die(msg):
+	print >> sys.stderr, "%s: %s" % (progname, msg)
+	sys.exit(1)
+
+def dbgprint(output):
+	print >> sys.stderr, output
+	print output
+	sys.stdout.flush()
+
+def capabilities(rname):
+	dbgprint("option\nimport\n")
+	#dbgprint("option\nimport\npush\nrefspec refs/heads/*:refs/remotes/%s/*\n" % rname)
+
+def option(args):
+	dbgprint("unsupported")
+
+def main():
+	"""Main function for Mercurial helper."""
+	# Get arguments
+	if len(sys.argv) != 3:
+		print >> sys.stderr, "%s: expecting exactly two arguments" % progname
+		sys.exit(1)
+	rname, rurl = sys.argv[1], util.url(sys.argv[2])
+
+	# Resolve relative paths
+	rurl.scheme = rurl.scheme or "file"
+	if rurl.scheme == "file":
+		rurl.path = os.path.abspath(rurl.path)
+
+	# Handle commands issued by Git
+	cmd = sys.stdin.readline().split(None, 1)
+	while cmd:
+		print >> sys.stderr, cmd
+
+		if cmd[0] == "capabilities":
+			capabilities(rname)
+		elif cmd[0] == "list":
+			die("list not yet implemented")
+		elif cmd[0] == "option":
+			option(cmd[1:])
+		elif cmd[0] == "push":
+			die("push not yet implemented")
+		elif cmd[0] == "import":
+			die("import not yet implemented")
+		else:
+			print >> sys.stderr, "%s: unrecognized command `%s'" % (progname, cmd[0])
+			sys.exit(1)
+		cmd = sys.stdin.readline().split(None, 1)
+
+
+if __name__ == "__main__":
+	progname = sys.argv[0].rsplit("/", 1)[-1]
+	try:
+		main()
+	except Exception as ex:
+		# Print standard-style command errors
+		print >> sys.stderr, "%s: %s" % (sys.argv[0], ex)
+		sys.exit(1)
