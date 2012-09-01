@@ -11,36 +11,46 @@ the remote is `hg::HGURL'.)
 """
 
 import sys
-from mercurial import hg, util
+from mercurial import hg, ui
 
 def die(msg):
 	print >> sys.stderr, "%s: %s" % (progname, msg)
 	sys.exit(1)
 
 def dbgprint(output):
-	print >> sys.stderr, output
-	print output
+	print >> sys.stderr, output,
+	print output,
 	sys.stdout.flush()
 
 def capabilities(rname):
-	dbgprint("option\nimport\n")
-	#dbgprint("option\nimport\npush\nrefspec refs/heads/*:refs/remotes/%s/*\n" % rname)
+	dbgprint("option\n")
+	dbgprint("import\n")
+	dbgprint("push\n")
+	if rname:
+		dbgprint("refspec refs/heads/*:refs/remotes/%s/*\n" % rname)
+	dbgprint("\n")
 
 def option(args):
-	dbgprint("unsupported")
+	# XXX Either implement options, or don't advertise
+	dbgprint("unsupported\n")
 
 def main():
 	"""Main function for Mercurial helper."""
-	# Get arguments
+	# Arguments should be:
+	# 1. Name of remote, or full remote URL (with "hg::" prefix)
+	# 2. Remote URL without prefix
 	if len(sys.argv) != 3:
 		print >> sys.stderr, "%s: expecting exactly two arguments" % progname
 		sys.exit(1)
-	rname, rurl = sys.argv[1], util.url(sys.argv[2])
 
-	# Resolve relative paths
-	rurl.scheme = rurl.scheme or "file"
-	if rurl.scheme == "file":
-		rurl.path = os.path.abspath(rurl.path)
+	# ':' is illegal in Git refs but required in full URLs, so we
+	# can use it to distinguish them here.
+	rname = sys.argv[1] if ":" not in sys.argv[1] else None
+
+	# Set up Mercurial objects: ui is settings/context, and peer is the remote
+	hgui = ui.ui()
+	# XXX set up proxy options and other stuff in ui
+	hgpeer = hg.peer(hgui, {}, sys.argv[2])
 
 	# Handle commands issued by Git
 	cmd = sys.stdin.readline().split(None, 1)
