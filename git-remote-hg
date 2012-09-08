@@ -13,7 +13,12 @@ the remote is `hg::HGURL'.)
 from __future__ import print_function
 
 import sys
-from mercurial import hg, ui
+from mercurial import hg, ui, node
+
+class peerplus(object):
+	def __init__(self, peer):
+		self.peer = peer
+		self.refmap = {}
 
 def die(msg):
 	print("%s: %s" % (progname, msg), file=sys.stderr)
@@ -23,7 +28,7 @@ def dbgprint(*vals, **kwargs):
 	print(*vals, file=sys.stderr, **kwargs)
 	print(*vals, **kwargs)
 
-def capabilities(rname):
+def cmd_capabilities(rname):
 	dbgprint("option")
 	dbgprint("import")
 	dbgprint("push")
@@ -32,9 +37,27 @@ def capabilities(rname):
 	dbgprint()
 	sys.stdout.flush()
 
-def option(args):
+def cmd_option(args):
 	# XXX Either implement options, or don't advertise
 	dbgprint("unsupported\n")
+	sys.stdout.flush()
+
+def cmd_list(pp):
+	# heads() returns heads tipmost first.  What do we want to map HEAD to?
+	# - Tipmost revision?  Possible, but probably not what we want.
+	# - Tipmost revision on default branch?  More Git-like.
+	# - Depends on TKPA of previous remote HEAD?  Sounds plausible.
+	for name, sha in pp.peer.listkeys("bookmarks").iteritems():
+		pp.refmap["bm/" + name] = sha
+	seen = set(pp.refmap.values())
+	for name, heads in pp.peer.branchmap().iteritems():
+		i = 0
+		for binsha in set(heads) - seen:
+			pp.refmap["br/" + name + "/" + str(i)] = node.hex(binsha)
+			i += 1
+	dbgprint(*["? " + name for name in pp.refmap.iterkeys()], sep="\n")
+	dbgprint("? HEAD")
+	dbgprint()
 	sys.stdout.flush()
 
 def main():
@@ -52,7 +75,7 @@ def main():
 	# Set up Mercurial objects: ui is settings/context, and peer is the remote
 	hgui = ui.ui()
 	# XXX set up proxy options and other stuff in ui
-	hgpeer = hg.peer(hgui, {}, sys.argv[2])
+	pp = peerplus(hg.peer(hgui, {}, sys.argv[2]))
 
 	# Handle commands issued by Git
 	cmd = sys.stdin.readline().split(None, 1)
@@ -60,11 +83,11 @@ def main():
 		print(cmd, file=sys.stderr)
 
 		if cmd[0] == "capabilities":
-			capabilities(rname)
-		elif cmd[0] == "list":
-			die("list not yet implemented")
+			cmd_capabilities(rname)
 		elif cmd[0] == "option":
-			option(cmd[1:])
+			cmd_option(cmd[1:])
+		elif cmd[0] == "list":
+			cmd_list(pp)
 		elif cmd[0] == "push":
 			die("push not yet implemented")
 		elif cmd[0] == "import":
@@ -80,4 +103,5 @@ if __name__ == "__main__":
 		main()
 	except Exception as ex:
 		# Print standard-style command errors
-		die(ex)
+		#die(ex)
+		raise
