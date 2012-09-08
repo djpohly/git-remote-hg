@@ -15,11 +15,6 @@ from __future__ import print_function
 import sys
 from mercurial import hg, ui, node
 
-class peerplus(object):
-	def __init__(self, peer):
-		self.peer = peer
-		self.refmap = {}
-
 def die(msg):
 	print("%s: %s" % (progname, msg), file=sys.stderr)
 	sys.exit(1)
@@ -28,37 +23,44 @@ def dbgprint(*vals, **kwargs):
 	print(*vals, file=sys.stderr, **kwargs)
 	print(*vals, **kwargs)
 
-def cmd_capabilities(rname):
-	dbgprint("option")
-	dbgprint("import")
-	dbgprint("push")
-	if rname:
-		dbgprint("refspec refs/heads/*:refs/remotes/%s/*" % rname)
-	dbgprint()
-	sys.stdout.flush()
 
-def cmd_option(args):
-	# XXX Either implement options, or don't advertise
-	dbgprint("unsupported\n")
-	sys.stdout.flush()
+class hgremote(object):
+	def __init__(self, name, peer):
+		self.name = name
+		self.peer = peer
+		self.refmap = {}
 
-def cmd_list(pp):
-	# heads() returns heads tipmost first.  What do we want to map HEAD to?
-	# - Tipmost revision?  Possible, but probably not what we want.
-	# - Tipmost revision on default branch?  More Git-like.
-	# - Depends on TKPA of previous remote HEAD?  Sounds plausible.
-	for name, sha in pp.peer.listkeys("bookmarks").iteritems():
-		pp.refmap["bm/" + name] = sha
-	seen = set(pp.refmap.values())
-	for name, heads in pp.peer.branchmap().iteritems():
-		i = 0
-		for binsha in set(heads) - seen:
-			pp.refmap["br/" + name + "/" + str(i)] = node.hex(binsha)
-			i += 1
-	dbgprint(*["? " + name for name in pp.refmap.iterkeys()], sep="\n")
-	dbgprint("? HEAD")
-	dbgprint()
-	sys.stdout.flush()
+	def capabilities(self):
+		dbgprint("option")
+		dbgprint("import")
+		dbgprint("push")
+		if self.name:
+			dbgprint("refspec refs/heads/*:refs/remotes/%s/*" % self.name)
+		dbgprint()
+		sys.stdout.flush()
+
+	def option(self, args):
+		# XXX Either implement options, or don't advertise
+		dbgprint("unsupported\n")
+		sys.stdout.flush()
+
+	def list(self):
+		# heads() returns heads tipmost first.  What do we want to map HEAD to?
+		# - Tipmost revision?  Possible, but probably not what we want.
+		# - Tipmost revision on default branch?  More Git-like.
+		# - Depends on TKPA of previous remote HEAD?  Sounds plausible.
+		for name, sha in self.peer.listkeys("bookmarks").iteritems():
+			self.refmap["bm/" + name] = sha
+		seen = set(self.refmap.values())
+		for name, heads in self.peer.branchmap().iteritems():
+			i = 0
+			for binsha in set(heads) - seen:
+				self.refmap["br/" + name + "/" + str(i)] = node.hex(binsha)
+				i += 1
+		dbgprint(*["? " + name for name in self.refmap.iterkeys()], sep="\n")
+		dbgprint("? HEAD")
+		dbgprint()
+		sys.stdout.flush()
 
 def main():
 	"""Main function for Mercurial helper."""
@@ -75,7 +77,7 @@ def main():
 	# Set up Mercurial objects: ui is settings/context, and peer is the remote
 	hgui = ui.ui()
 	# XXX set up proxy options and other stuff in ui
-	pp = peerplus(hg.peer(hgui, {}, sys.argv[2]))
+	remote = hgremote(rname, hg.peer(hgui, {}, sys.argv[2]))
 
 	# Handle commands issued by Git
 	cmd = sys.stdin.readline().split(None, 1)
@@ -83,11 +85,11 @@ def main():
 		print(cmd, file=sys.stderr)
 
 		if cmd[0] == "capabilities":
-			cmd_capabilities(rname)
+			remote.capabilities()
 		elif cmd[0] == "option":
-			cmd_option(cmd[1:])
+			remote.option(cmd[1:])
 		elif cmd[0] == "list":
-			cmd_list(pp)
+			remote.list()
 		elif cmd[0] == "push":
 			die("push not yet implemented")
 		elif cmd[0] == "import":
