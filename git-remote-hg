@@ -10,29 +10,32 @@ URL.  (For URLs specified directly on the command line, the name of
 the remote is `hg::HGURL'.)
 """
 
+from __future__ import print_function
+
 import sys
 from mercurial import hg, ui
 
 def die(msg):
-	print >> sys.stderr, "%s: %s" % (progname, msg)
+	print("%s: %s" % (progname, msg), file=sys.stderr)
 	sys.exit(1)
 
-def dbgprint(output):
-	print >> sys.stderr, output,
-	print output,
-	sys.stdout.flush()
+def dbgprint(*vals, **kwargs):
+	print(*vals, file=sys.stderr, **kwargs)
+	print(*vals, **kwargs)
 
 def capabilities(rname):
-	dbgprint("option\n")
-	dbgprint("import\n")
-	dbgprint("push\n")
+	dbgprint("option")
+	dbgprint("import")
+	dbgprint("push")
 	if rname:
-		dbgprint("refspec refs/heads/*:refs/remotes/%s/*\n" % rname)
-	dbgprint("\n")
+		dbgprint("refspec refs/heads/*:refs/remotes/%s/*" % rname)
+	dbgprint()
+	sys.stdout.flush()
 
 def option(args):
 	# XXX Either implement options, or don't advertise
 	dbgprint("unsupported\n")
+	sys.stdout.flush()
 
 def main():
 	"""Main function for Mercurial helper."""
@@ -40,8 +43,7 @@ def main():
 	# 1. Name of remote, or full remote URL (with "hg::" prefix)
 	# 2. Remote URL without prefix
 	if len(sys.argv) != 3:
-		print >> sys.stderr, "%s: expecting exactly two arguments" % progname
-		sys.exit(1)
+		die("expecting exactly two arguments")
 
 	# ':' is illegal in Git refs but required in full URLs, so we
 	# can use it to distinguish them here.
@@ -55,7 +57,7 @@ def main():
 	# Handle commands issued by Git
 	cmd = sys.stdin.readline().split(None, 1)
 	while cmd:
-		print >> sys.stderr, cmd
+		print(cmd, file=sys.stderr)
 
 		if cmd[0] == "capabilities":
 			capabilities(rname)
@@ -68,8 +70,7 @@ def main():
 		elif cmd[0] == "import":
 			die("import not yet implemented")
 		else:
-			print >> sys.stderr, "%s: unrecognized command `%s'" % (progname, cmd[0])
-			sys.exit(1)
+			die("unrecognized command `%s'" % cmd[0])
 		cmd = sys.stdin.readline().split(None, 1)
 
 
@@ -79,5 +80,4 @@ if __name__ == "__main__":
 		main()
 	except Exception as ex:
 		# Print standard-style command errors
-		print >> sys.stderr, "%s: %s" % (sys.argv[0], ex)
-		sys.exit(1)
+		die(ex)
