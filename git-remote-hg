@@ -36,18 +36,16 @@ def option_verbosity(val):
 		dbgprint("error verbosity not a number")
 	else:
 		dbgprint("ok")
-	sys.stdout.flush()
 
 def option_dryrun(val):
 	if val == "true":
 		dryrun = True
+		dbgprint("ok")
 	elif val == "false":
 		dryrun = False
+		dbgprint("ok")
 	else:
 		dbgprint("error dry-run not true|false")
-		return
-	dbgprint("ok")
-	sys.stdout.flush()
 
 
 class hgremote(object):
@@ -74,19 +72,19 @@ class hgremote(object):
 		seen = set(self.refmap.values())
 
 		# branchmap() returns heads in recency order, tip first
-		for name, heads in self.peer.branchmap().iteritems():
+		branchmap = self.peer.branchmap()
+		for name, heads in branchmap.iteritems():
 			i = 0
-			for binsha in set(heads) - seen:
-				self.refmap["br/" + name + "/" + str(i)] = node.hex(binsha)
+			for sha in set([node.hex(head) for head in heads]) - seen:
+				self.refmap["br/" + name + "/" + str(i)] = sha
 				i += 1
 		dbgprint(*["? " + name for name in self.refmap.iterkeys()], sep="\n")
 
 		# What do we want to map HEAD to?
-		# - Tipmost revision?  Possible, but probably not what we want.
-		# - Tipmost revision on default branch?  More Git-like.
+		# - Tipmost revision on default branch?  Good for initial clone.
 		# - Depends on TKPA of previous remote HEAD?  Sounds plausible.
-		self.refmap["HEAD"] = self.refmap["br/default/0"]
-		dbgprint("@br/default/0 HEAD")
+		self.refmap["HEAD"] = node.hex(branchmap['default'][0])
+		dbgprint("? HEAD")
 
 		dbgprint()
 		sys.stdout.flush()
@@ -117,18 +115,23 @@ def main():
 
 	# Handle commands issued by Git
 	cmd = sys.stdin.readline().split(None, 1)
-	while cmd:
+	importrefs = pushrefs = []
+	while True:
 		print(cmd, file=sys.stderr)
 
-		if cmd[0] == "capabilities":
-			remote.capabilities()
-		elif cmd[0] == "list":
-			remote.list()
-		elif cmd[0] == "import":
-			remote.fastimport(cmd[1])
-		elif cmd[0] == "push":
-			remote.push(cmd[1])
-		elif cmd[0] == "option":
+		# Blank line ends batch or command stream
+		if len(cmd) == 0:
+			if importrefs:
+				remote.fastimport(importrefs)
+				importrefs = []
+				continue
+			if pushrefs:
+				remote.push(pushrefs)
+				pushrefs = []
+				continue
+			break
+		# Options can be issued during a batch
+		if cmd[0] == "option":
 			args = cmd[1].split(None, 1)
 			if args[0] == "verbosity":
 				option_verbosity(args[1])
@@ -137,6 +140,22 @@ def main():
 			else:
 				dbgprint("unsupported\n")
 			sys.stdout.flush()
+			continue
+
+		# No other command is allowed to interrupt a batch
+		if pushrefs and cmd[0] != "push":
+			die("push batch interrupted")
+		if importrefs and cmd[0] != "import":
+			die("import batch interrupted")
+
+		if cmd[0] == "import":
+			importrefs.append(cmd[1])
+		elif cmd[0] == "push":
+			pushrefs.append(cmd[1])
+		elif cmd[0] == "capabilities":
+			remote.capabilities()
+		elif cmd[0] == "list":
+			remote.list()
 		else:
 			die("unrecognized command `%s'" % cmd[0])
 		cmd = sys.stdin.readline().split(None, 1)
