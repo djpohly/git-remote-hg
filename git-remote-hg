@@ -10,12 +10,18 @@ URL.  (For URLs specified directly on the command line, the name of
 the remote is `hg::HGURL'.)
 """
 
+
 from __future__ import print_function
 
 import sys
 from mercurial import hg, ui, node
 
+
+verbosity = 1
+dryrun = False
+
 def die(msg):
+	progname = sys.argv[0].rsplit("/", 1)[-1]
 	print("%s: %s" % (progname, msg), file=sys.stderr)
 	sys.exit(1)
 
@@ -23,11 +29,32 @@ def dbgprint(*vals, **kwargs):
 	print(*vals, file=sys.stderr, **kwargs)
 	print(*vals, **kwargs)
 
+def option_verbosity(val):
+	try:
+		verbosity = int(val)
+	except ValueError:
+		dbgprint("error verbosity not a number")
+	else:
+		dbgprint("ok")
+	sys.stdout.flush()
+
+def option_dryrun(val):
+	if val == "true":
+		dryrun = True
+	elif val == "false":
+		dryrun = False
+	else:
+		dbgprint("error dry-run not true|false")
+		return
+	dbgprint("ok")
+	sys.stdout.flush()
+
 
 class hgremote(object):
-	def __init__(self, name, peer):
+	def __init__(self, hgui, url, name):
+		self.ui = hgui
+		self.peer = hg.peer(self.ui, {}, url)
 		self.name = name
-		self.peer = peer
 		self.refmap = {}
 
 	def capabilities(self):
@@ -39,28 +66,37 @@ class hgremote(object):
 		dbgprint()
 		sys.stdout.flush()
 
-	def option(self, args):
-		# XXX Either implement options, or don't advertise
-		dbgprint("unsupported\n")
-		sys.stdout.flush()
-
 	def list(self):
-		# heads() returns heads tipmost first.  What do we want to map HEAD to?
-		# - Tipmost revision?  Possible, but probably not what we want.
-		# - Tipmost revision on default branch?  More Git-like.
-		# - Depends on TKPA of previous remote HEAD?  Sounds plausible.
+		self.refmap = {}
+		# Give bookmarks priority
 		for name, sha in self.peer.listkeys("bookmarks").iteritems():
 			self.refmap["bm/" + name] = sha
 		seen = set(self.refmap.values())
+
+		# branchmap() returns heads in recency order, tip first
 		for name, heads in self.peer.branchmap().iteritems():
 			i = 0
 			for binsha in set(heads) - seen:
 				self.refmap["br/" + name + "/" + str(i)] = node.hex(binsha)
 				i += 1
 		dbgprint(*["? " + name for name in self.refmap.iterkeys()], sep="\n")
-		dbgprint("? HEAD")
+
+		# What do we want to map HEAD to?
+		# - Tipmost revision?  Possible, but probably not what we want.
+		# - Tipmost revision on default branch?  More Git-like.
+		# - Depends on TKPA of previous remote HEAD?  Sounds plausible.
+		self.refmap["HEAD"] = self.refmap["br/default/0"]
+		dbgprint("@br/default/0 HEAD")
+
 		dbgprint()
 		sys.stdout.flush()
+
+	def fastimport(self, ref):
+		die("import not yet implemented")
+
+	def push(self, ref):
+		die("push not yet implemented")
+
 
 def main():
 	"""Main function for Mercurial helper."""
@@ -77,7 +113,7 @@ def main():
 	# Set up Mercurial objects: ui is settings/context, and peer is the remote
 	hgui = ui.ui()
 	# XXX set up proxy options and other stuff in ui
-	remote = hgremote(rname, hg.peer(hgui, {}, sys.argv[2]))
+	remote = hgremote(hgui, sys.argv[2], rname)
 
 	# Handle commands issued by Git
 	cmd = sys.stdin.readline().split(None, 1)
@@ -86,24 +122,25 @@ def main():
 
 		if cmd[0] == "capabilities":
 			remote.capabilities()
-		elif cmd[0] == "option":
-			remote.option(cmd[1:])
 		elif cmd[0] == "list":
 			remote.list()
-		elif cmd[0] == "push":
-			die("push not yet implemented")
 		elif cmd[0] == "import":
-			die("import not yet implemented")
+			remote.fastimport(cmd[1])
+		elif cmd[0] == "push":
+			remote.push(cmd[1])
+		elif cmd[0] == "option":
+			args = cmd[1].split(None, 1)
+			if args[0] == "verbosity":
+				option_verbosity(args[1])
+			elif args[0] == "dry-run":
+				option_dryrun(args[1])
+			else:
+				dbgprint("unsupported\n")
+			sys.stdout.flush()
 		else:
 			die("unrecognized command `%s'" % cmd[0])
 		cmd = sys.stdin.readline().split(None, 1)
 
 
 if __name__ == "__main__":
-	progname = sys.argv[0].rsplit("/", 1)[-1]
-	try:
-		main()
-	except Exception as ex:
-		# Print standard-style command errors
-		#die(ex)
-		raise
+	main()
