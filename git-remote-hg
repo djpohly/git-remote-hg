@@ -14,7 +14,7 @@ the remote is `hg::HGURL'.)
 from __future__ import print_function
 
 import sys
-from mercurial import hg, ui, node
+import mercutil as hg
 
 
 verbosity = 1
@@ -51,7 +51,7 @@ def option_dryrun(val):
 class hgremote(object):
 	def __init__(self, hgui, url, name):
 		self.ui = hgui
-		self.peer = hg.peer(self.ui, {}, url)
+		self.peer = hg.peer(self.ui, url)
 		self.name = name
 		self.refmap = {}
 
@@ -67,23 +67,21 @@ class hgremote(object):
 	def list(self):
 		self.refmap = {}
 		# Give bookmarks priority
-		for name, sha in self.peer.listkeys("bookmarks").iteritems():
+		for name, sha in self.peer.bookmarks().iteritems():
 			self.refmap["bm/" + name] = sha
 		seen = set(self.refmap.values())
 
 		# branchmap() returns heads in recency order, tip first
 		branchmap = self.peer.branchmap()
 		for name, heads in branchmap.iteritems():
-			i = 0
-			for sha in set([node.hex(head) for head in heads]) - seen:
+			for i, sha in enumerate([h for h in heads if h not in seen]):
 				self.refmap["br/" + name + "/" + str(i)] = sha
-				i += 1
 		dbgprint(*["? " + name for name in self.refmap.iterkeys()], sep="\n")
 
 		# What do we want to map HEAD to?
 		# - Tipmost revision on default branch?  Good for initial clone.
 		# - Depends on TKPA of previous remote HEAD?  Sounds plausible.
-		self.refmap["HEAD"] = node.hex(branchmap['default'][0])
+		self.refmap["HEAD"] = branchmap['default'][0]
 		dbgprint("? HEAD")
 
 		dbgprint()
@@ -109,7 +107,7 @@ def main():
 	rname = sys.argv[1] if ":" not in sys.argv[1] else None
 
 	# Set up Mercurial objects: ui is settings/context, and peer is the remote
-	hgui = ui.ui()
+	hgui = hg.ui()
 	# XXX set up proxy options and other stuff in ui
 	remote = hgremote(hgui, sys.argv[2], rname)
 
