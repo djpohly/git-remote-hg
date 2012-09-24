@@ -53,12 +53,6 @@ def option_dryrun(val):
 	else:
 		dbgprint("error dry-run not true|false")
 
-def rawtree(treeish):
-	# XXX CalledProcessError here means treeish not found/valid
-	args = ["git", "ls-tree", treeish]
-	return (l[:-1].split(None, 3) for l in subprocess.Popen(args,
-			bufsize=1, stdout=subprocess.PIPE).stdout)
-
 
 class hgremote(object):
 	def __init__(self, hgui, url, name):
@@ -110,6 +104,12 @@ class hgremote(object):
 
 	def push(self, ref):
 		die("push not yet implemented")
+
+def rawtree(treeish):
+	# XXX CalledProcessError here means treeish not found/valid
+	args = ["git", "ls-tree", treeish]
+	return (l[:-1].split(None, 3) for l in subprocess.Popen(args,
+			bufsize=1, stdout=subprocess.PIPE).stdout)
 
 class revmap(object):
 	def __init__(self, ref):
