@@ -13,9 +13,13 @@ the remote is `hg::HGURL'.)
 
 from __future__ import print_function
 
-import sys
+import sys, collections, subprocess
 import mercutil as hg
 
+
+Ctree = collections.namedtuple("Ctree", ["sha", "mf", "extra"])
+Mtree = collections.namedtuple("Mtree", ["sha", "file"])
+Ftree = collections.namedtuple("Ftree", ["sha", "extra"])
 
 verbosity = 1
 dryrun = False
@@ -46,6 +50,12 @@ def option_dryrun(val):
 		dbgprint("ok")
 	else:
 		dbgprint("error dry-run not true|false")
+
+def rawtree(treeish):
+	# XXX CalledProcessError here means treeish not found/valid
+	args = ["git", "ls-tree", treeish]
+	return (l[:-1].split(None, 3) for l in subprocess.Popen(args, bufsize=1,
+	                            stdout=subprocess.PIPE).stdout)
 
 
 class hgremote(object):
@@ -92,6 +102,29 @@ class hgremote(object):
 
 	def push(self, ref):
 		die("push not yet implemented")
+
+class revmap(object):
+	def __init__(self, ref):
+		self.rmap = {e[3]: e[2] for e in rawtree(ref)}
+	def readftree(self, treesha):
+		tree = rawtree(treesha)
+		sha = None
+		extra = {}
+		for ent in tree:
+			# XXX CalledProcessError here means git repo corrupted
+			# (sub-objects lost)
+			if ent[3] == "sha":
+				args = ["git", "cat-file", "blob", ent[2]]
+				sha = subprocess.check_output(args)
+			elif ent[3].startswith("extra."):
+				name = ent[3][6:].replace(": ", "/")
+				args = ["git", "cat-file", "blob", ent[2]]
+				extra[name] = subprocess.check_output(args)
+		return Ftree(sha, extra)
+	def filecontent(self, ftree):
+		args = ["git", "cat-file", "blob", ftree.sha]
+		text = subprocess.check_output(args)
+		return hg.buildfile(text, ftree.extra)
 
 
 def main():
