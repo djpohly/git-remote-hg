@@ -68,7 +68,8 @@ class hgremote(object):
 		self.refmap = {}
 
 	def capabilities(self):
-		dbgprint("option")
+		#dbgprint("option")
+		dbgprint("fetch")
 		dbgprint("import")
 		dbgprint("push")
 		if self.name:
