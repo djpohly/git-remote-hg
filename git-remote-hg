@@ -105,11 +105,18 @@ class hgremote(object):
 	def push(self, ref):
 		die("push not yet implemented")
 
-def rawtree(treeish):
+def rawtree(treeish, recurse=False):
 	# XXX CalledProcessError here means treeish not found/valid
-	args = ["git", "ls-tree", treeish]
+	if recurse:
+		args = ["git", "ls-tree", "-r", treeish]
+	else:
+		args = ["git", "ls-tree", treeish]
 	return (l[:-1].split(None, 3) for l in subprocess.Popen(args,
 			bufsize=1, stdout=subprocess.PIPE).stdout)
+def rawblob(obj):
+	# XXX CalledProcessError here means object not found/valid
+	args = ["git", "cat-file", "blob", obj]
+	return subprocess.check_output(args)
 
 class revmap(object):
 	def __init__(self, ref):
@@ -122,17 +129,13 @@ class revmap(object):
 			# XXX CalledProcessError here means git repo corrupted
 			# (sub-objects lost)
 			if ent[3] == "sha":
-				args = ["git", "cat-file", "blob", ent[2]]
-				sha = subprocess.check_output(args)
+				sha = rawblob(ent[2])
 			elif ent[3].startswith("extra."):
 				name = ent[3][6:].replace(": ", "/")
-				args = ["git", "cat-file", "blob", ent[2]]
-				extra[name] = subprocess.check_output(args)
+				extra[name] = rawblob(ent[2])
 		return Ftree(sha, extra)
 	def filecontent(self, ftree):
-		args = ["git", "cat-file", "blob", ftree.sha]
-		text = subprocess.check_output(args)
-		return hg.buildfile(text, ftree.extra)
+		return hg.buildfile(rawblob(ftree.sha), ftree.extra)
 
 class revcache(object):
 	def __init__(self, revmap):
