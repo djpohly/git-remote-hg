@@ -56,8 +56,8 @@ def option_dryrun(val):
 def rawtree(treeish):
 	# XXX CalledProcessError here means treeish not found/valid
 	args = ["git", "ls-tree", treeish]
-	return (l[:-1].split(None, 3) for l in subprocess.Popen(args, bufsize=1,
-	                            stdout=subprocess.PIPE).stdout)
+	return (l[:-1].split(None, 3) for l in subprocess.Popen(args,
+			bufsize=1, stdout=subprocess.PIPE).stdout)
 
 
 class hgremote(object):
@@ -73,7 +73,8 @@ class hgremote(object):
 		dbgprint("import")
 		dbgprint("push")
 		if self.name:
-			dbgprint("refspec refs/heads/*:refs/remotes/%s/*" % self.name)
+			dbgprint("refspec refs/heads/*:refs/remotes/%s/*" %
+			         self.name)
 		dbgprint()
 		sys.stdout.flush()
 
@@ -88,12 +89,15 @@ class hgremote(object):
 		# branchmap() returns heads in recency order, tip first
 		branchmap = self.peer.branchmap()
 		for name, heads in branchmap.iteritems():
-			for i, sha in enumerate([h for h in heads if h not in seen]):
+			for i, sha in enumerate([h for h in heads
+			                         if h not in seen]):
 				self.refmap["br/" + name + "/" + str(i)] = sha
-		dbgprint(*["? " + name for name in self.refmap.iterkeys()], sep="\n")
+		dbgprint(*["? " + name for name in self.refmap.iterkeys()],
+		         sep="\n")
 
 		# What do we want to map HEAD to?
-		# - Tipmost revision on default branch?  Good for initial clone.
+		# - Tipmost revision on default branch?  Good for initial
+		#   clone.
 		# - Depends on TKPA of previous remote HEAD?  Sounds plausible.
 		self.refmap["HEAD"] = branchmap["default"][0]
 		dbgprint("? HEAD")
@@ -174,7 +178,7 @@ def main():
 	# can use it to distinguish them here.
 	rname = sys.argv[1] if ":" not in sys.argv[1] else None
 
-	# Set up Mercurial objects: ui is settings/context, and peer is the remote
+	# Set up Mercurial objects: ui is settings/context
 	hgui = hg.ui()
 	# XXX set up proxy options and other stuff in ui
 	remote = hgremote(hgui, sys.argv[2], rname)
