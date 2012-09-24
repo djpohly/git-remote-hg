@@ -27,3 +27,7 @@ def buildfile(text, extra=None):
 	if not (extra or text.startswith("\1\n")):
 		return text
 	return "\1\n%s\1\n%s" % (filelog._packmeta(extra), text)
+
+def makebundle(clog, mlog, flog):
+	# XXX implement once we decide how to store deltified logs
+	raise NotImplementedError

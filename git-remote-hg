@@ -20,6 +20,8 @@ import mercutil as hg
 Ctree = collections.namedtuple("Ctree", ["sha", "mf", "extra"])
 Mtree = collections.namedtuple("Mtree", ["sha", "file"])
 Ftree = collections.namedtuple("Ftree", ["sha", "extra"])
+# XXX change text to delta
+Rev = collections.namedtuple("Rev", ["nodeid", "p1", "p2", "cs", "text"])
 
 verbosity = 1
 dryrun = False
@@ -127,6 +129,37 @@ class revmap(object):
 		text = subprocess.check_output(args)
 		return hg.buildfile(text, ftree.extra)
 
+class revcache(object):
+	def __init__(self, revmap):
+		self.clog = []
+		self.mlog = []
+		self.flog = {}
+		self.revmap = revmap
+	def addcset(self, p1, p2, text):
+		node = hg.hash(text, p1, p2)
+		if not self.clog:
+			# XXX add parent
+			pass
+		self.clog.append(Rev(node, p1, p2, node, text))
+		return node
+	def addmf(self, p1, p2, cs, text):
+		node = hg.hash(text, p1, p2)
+		if not self.mlog:
+			# XXX add parent
+			pass
+		self.mlog.append(Rev(node, p1, p2, node, text))
+		return node
+	def addfile(self, path, p1, p2, cs, text):
+		node = hg.hash(text, p1, p2)
+		item = Rev(node, p1, p2, cs, text)
+		try:
+			self.flog[path].append(item)
+		except KeyError:
+			# XXX add parent
+			pass
+		return node
+	def tobundle(self):
+		return hg.makebundle(self.clog, self.mlog, self.flog)
 
 def main():
 	"""Main function for Mercurial helper."""
