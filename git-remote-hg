@@ -107,10 +107,9 @@ class hgremote(object):
 
 def rawtree(treeish, recurse=False):
 	# XXX CalledProcessError here means treeish not found/valid
+	args = ["git", "ls-tree", treeish]
 	if recurse:
-		args = ["git", "ls-tree", "-r", treeish]
-	else:
-		args = ["git", "ls-tree", treeish]
+		args.append("-r")
 	return (l[:-1].split(None, 3) for l in subprocess.Popen(args,
 			bufsize=1, stdout=subprocess.PIPE).stdout)
 def rawblob(obj):
