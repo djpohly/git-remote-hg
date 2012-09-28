@@ -18,7 +18,7 @@ import mercutil as hg
 
 
 # XXX change text to delta
-Rev = collections.namedtuple("Rev", ["nodeid", "p1", "p2", "cs", "text"])
+Rev = collections.namedtuple("Rev", ["text", "nodeid", "p1", "p2", "cs"])
 
 verbosity = 1
 dryrun = False
@@ -187,28 +187,27 @@ class RevCache(object):
 	def addcset(self, p1, p2, text):
 		if not self.clog:
 			p1text = self.revmap.get(p1, Ctree).text()
-			self.clog.append(Rev(p1, hg.NULLID, hg.NULLID,
-			                     hg.NULLID, p1text))
+			self.clog.append(Rev(p1text, p1, hg.NULLID, hg.NULLID,
+			                     hg.NULLID))
 		node = hg.hash(text, p1, p2)
-		self.clog.append(Rev(node, p1, p2, node, text))
+		self.clog.append(Rev(text, node, p1, p2, node))
 		return node
 	def addmf(self, p1, p2, cs, text):
 		if not self.mlog:
 			p1text = self.revmap.get(p1, Mtree).text()
-			self.mlog.append(Rev(p1, hg.NULLID, hg.NULLID,
-			                     hg.NULLID, p1text))
+			self.mlog.append(Rev(p1text, p1, hg.NULLID, hg.NULLID,
+			                     hg.NULLID))
 		node = hg.hash(text, p1, p2)
-		self.mlog.append(Rev(node, p1, p2, cs, text))
+		self.mlog.append(Rev(text, node, p1, p2, cs))
 		return node
 	def addfile(self, path, p1, p2, cs, text):
 		revs = self.flog.setdefault(path, [])
 		if not revs:
 			p1text = self.revmap.get(p1, Ftree).text()
-			revs.append(Rev(p1, hg.NULLID, hg.NULLID, hg.NULLID,
-			                p1text))
+			revs.append(Rev(p1text, p1, hg.NULLID, hg.NULLID,
+			                hg.NULLID))
 		node = hg.hash(text, p1, p2)
-		item = Rev(node, p1, p2, cs, text)
-		revs.append(item)
+		revs.append(Rev(text, node, p1, p2, cs))
 		return node
 	def tobundle(self):
 		return hg.makebundle(self.clog, self.mlog, self.flog)
