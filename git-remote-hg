@@ -185,27 +185,30 @@ class RevCache(object):
 		self.flog = {}
 		self.revmap = revmap
 	def addcset(self, p1, p2, text):
-		node = hg.hash(text, p1, p2)
 		if not self.clog:
-			# XXX add parent
-			pass
+			p1text = self.revmap.get(p1, Ctree).text()
+			self.clog.append(Rev(p1, hg.NULLID, hg.NULLID,
+			                     hg.NULLID, p1text))
+		node = hg.hash(text, p1, p2)
 		self.clog.append(Rev(node, p1, p2, node, text))
 		return node
 	def addmf(self, p1, p2, cs, text):
-		node = hg.hash(text, p1, p2)
 		if not self.mlog:
-			# XXX add parent
-			pass
+			p1text = self.revmap.get(p1, Mtree).text()
+			self.mlog.append(Rev(p1, hg.NULLID, hg.NULLID,
+			                     hg.NULLID, p1text))
+		node = hg.hash(text, p1, p2)
 		self.mlog.append(Rev(node, p1, p2, node, text))
 		return node
 	def addfile(self, path, p1, p2, cs, text):
+		revs = self.flog.setdefault(path, [])
+		if not revs:
+			p1text = self.revmap.get(p1, Ftree).text()
+			revs.append(Rev(p1, hg.NULLID, hg.NULLID, hg.NULLID,
+			                p1text))
 		node = hg.hash(text, p1, p2)
 		item = Rev(node, p1, p2, cs, text)
-		try:
-			self.flog[path].append(item)
-		except KeyError:
-			# XXX add parent
-			pass
+		revs.append(item)
 		return node
 	def tobundle(self):
 		return hg.makebundle(self.clog, self.mlog, self.flog)
