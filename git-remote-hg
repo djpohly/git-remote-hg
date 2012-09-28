@@ -247,7 +247,7 @@ def main():
 	rname = sys.argv[1] if ":" not in sys.argv[1] else None
 
 	# Set up Mercurial objects: ui is settings/context
-	hgui = hg.ui()
+	hgui = hg.Ui()
 	# XXX set up proxy options and other stuff in ui
 	remote = HgRemote(hgui, sys.argv[2], rname)
 

@@ -3,18 +3,19 @@
 Uses 40-character hex nodeids consistently
 """
 
-from mercurial import hg, ui, node, revlog, filelog
+from mercurial import hg, node, revlog, filelog
+
+from mercurial.ui import ui as Ui
+from mercurial.mdiff import textdiff
 
 NULLID = "0" * 40
-
-ui = ui.ui
 
 def hash(text, p1, p2):
 	return node.hex(revlog.hash(text, node.bin(p1), node.bin(p2)))
 
 class Peer(object):
-	def __init__(self, ui, url):
-		self.p = hg.peer(ui, {}, url)
+	def __init__(self, hgui, url):
+		self.p = hg.peer(hgui, {}, url)
 
 	def branchmap(self):
 		return {name: [node.hex(h) for h in heads]
