@@ -54,10 +54,10 @@ def option_dryrun(val):
 		dbgprint("error dry-run not true|false")
 
 
-class hgremote(object):
+class HgRemote(object):
 	def __init__(self, hgui, url, name):
 		self.ui = hgui
-		self.peer = hg.peer(self.ui, url)
+		self.peer = hg.Peer(self.ui, url)
 		self.name = name
 		self.refmap = {}
 
@@ -167,7 +167,7 @@ def readctree(self, treesha):
 def filecontent(ftree):
 	return hg.buildfile(rawblob(ftree.sha), ftree.extra)
 
-class revmap(object):
+class RevMap(object):
 	def __init__(self, ref):
 		self.revs = {e[3]: e[2] for e in rawtree(ref)}
 		self.cache = {}
@@ -181,7 +181,7 @@ class revmap(object):
 		cache[idorsha] = tree
 		return tree
 
-class revcache(object):
+class RevCache(object):
 	def __init__(self, revmap):
 		self.clog = []
 		self.mlog = []
@@ -228,7 +228,7 @@ def main():
 	# Set up Mercurial objects: ui is settings/context
 	hgui = hg.ui()
 	# XXX set up proxy options and other stuff in ui
-	remote = hgremote(hgui, sys.argv[2], rname)
+	remote = HgRemote(hgui, sys.argv[2], rname)
 
 	# Handle commands issued by Git
 	cmd = sys.stdin.readline().split(None, 1)
