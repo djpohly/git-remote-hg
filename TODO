@@ -1,5 +1,3 @@
-* Allow new revs to be added to revmap but stored separately so we can access
-  them later when building new revmap.
 * Have revcache store deltas only and not full object text
 * Implement mercutil.makebundle
 * Consider using a single `cat-file --batch' to save some fork+execs

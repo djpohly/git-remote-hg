@@ -193,6 +193,10 @@ class RevMap(object):
 		tree = func(self.revs[idorsha])
 		cache[idorsha] = tree
 		return tree
+	def add(self, idorsha, tree):
+		# If we do add a duplicate, it had better be exactly the same
+		test = self.new.setdefault(tree)
+		assert test.nodeid == tree.nodeid
 
 class RevCache(object):
 	def __init__(self, revmap):
