@@ -17,9 +17,6 @@ import sys, collections, subprocess
 import mercutil as hg
 
 
-Ctree = collections.namedtuple("Ctree", ["sha", "nodeid", "mf", "extra"])
-Mtree = collections.namedtuple("Mtree", ["sha", "nodeid", "files"])
-Ftree = collections.namedtuple("Ftree", ["sha", "nodeid", "extra"])
 # XXX change text to delta
 Rev = collections.namedtuple("Rev", ["nodeid", "p1", "p2", "cs", "text"])
 
@@ -117,55 +114,55 @@ def rawblob(obj):
 	args = ["git", "cat-file", "blob", obj]
 	return subprocess.check_output(args)
 
-def readftree(treesha):
-	tree = rawtree(treesha)
-	sha = nodeid = None
-	extra = {}
-	for ent in tree:
-		# XXX CalledProcessError here means git repo corrupted
-		# (sub-objects lost)
-		if ent[3] == "sha":
-			sha = rawblob(ent[2])
-		elif ent[3] == "nodeid":
-			nodeid = rawblob(ent[2])
-		elif ent[3].startswith("extra."):
-			name = ent[3][6:].replace(": ", "/")
-			extra[name] = rawblob(ent[2])
-	return Ftree(sha, extra)
-def readmtree(treesha):
-	tree = rawtree(treesha, recurse=True)
-	sha = nodeid = None
-	files = {}
-	for ent in tree:
-		# XXX CalledProcessError here means git repo corrupted
-		# (sub-objects lost)
-		if ent[3] == "sha":
-			sha = rawblob(ent[2])
-		elif ent[3] == "nodeid":
-			nodeid = rawblob(ent[2])
-		elif ent[3].startswith("file/") and \
-		     ent[3].endswith("/nodeid"):
-			files[ent[3][5:-7]] = rawblob(ent[2])
-	return Mtree(sha, nodeid, files)
-def readctree(self, treesha):
-	tree = rawtree(treesha)
-	sha = nodeid = mf = None
-	extra = {}
-	for ent in tree:
-		# XXX CalledProcessError here means git repo corrupted
-		# (sub-objects lost)
-		if ent[3] == "sha":
-			sha = rawblob(ent[2])
-		elif ent[3] == "nodeid":
-			nodeid = rawblob(ent[2])
-		elif ent[3] == "mf":
-			mf = rawblob(ent[2])
-		elif ent[3].startswith("extra."):
-			name = ent[3][6:].replace(": ", "/")
-			extra[name] = rawblob(ent[2])
-	return Ctree(sha, nodeid, mf, extra)
-def filecontent(ftree):
-	return hg.buildfile(rawblob(ftree.sha), ftree.extra)
+class Ftree(object):
+	def __init__(self, treesha):
+		tree = rawtree(treesha)
+		self.sha = self.nodeid = None
+		self.extra = {}
+		for ent in tree:
+			# XXX CalledProcessError here means git repo corrupted
+			# (sub-objects lost)
+			if ent[3] == "sha":
+				self.sha = rawblob(ent[2])
+			elif ent[3] == "nodeid":
+				self.nodeid = rawblob(ent[2])
+			elif ent[3].startswith("extra."):
+				name = ent[3][6:].replace(": ", "/")
+				self.extra[name] = rawblob(ent[2])
+	def text(self):
+		return hg.buildfile(rawblob(self.sha), self.extra)
+class Mtree(object):
+	def __init__(self, treesha):
+		tree = rawtree(treesha, recurse=True)
+		self.sha = self.nodeid = None
+		self.files = {}
+		for ent in tree:
+			# XXX CalledProcessError here means git repo corrupted
+			# (sub-objects lost)
+			if ent[3] == "sha":
+				self.sha = rawblob(ent[2])
+			elif ent[3] == "nodeid":
+				self.nodeid = rawblob(ent[2])
+			elif ent[3].startswith("file/") and \
+			     ent[3].endswith("/nodeid"):
+				self.files[ent[3][5:-7]] = rawblob(ent[2])
+class Ctree(object):
+	def __init__(self, treesha):
+		tree = rawtree(treesha)
+		self.sha = self.nodeid = self.mf = None
+		extra = {}
+		for ent in tree:
+			# XXX CalledProcessError here means git repo corrupted
+			# (sub-objects lost)
+			if ent[3] == "sha":
+				self.sha = rawblob(ent[2])
+			elif ent[3] == "nodeid":
+				self.nodeid = rawblob(ent[2])
+			elif ent[3] == "mf":
+				self.mf = rawblob(ent[2])
+			elif ent[3].startswith("extra."):
+				name = ent[3][6:].replace(": ", "/")
+				self.extra[name] = rawblob(ent[2])
 
 class RevMap(object):
 	def __init__(self, ref):
