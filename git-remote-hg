@@ -204,7 +204,7 @@ class RevCache(object):
 		self.mlog = []
 		self.flog = {}
 		self.revmap = revmap
-	def addcset(self, p1, p2, text):
+	def addcset(self, text, p1, p2):
 		if not self.clog:
 			p1text = self.revmap.get(p1, Ctree).text()
 			self.clog.append(Rev(p1text, p1, hg.NULLID, hg.NULLID,
@@ -212,7 +212,7 @@ class RevCache(object):
 		node = hg.hash(text, p1, p2)
 		self.clog.append(Rev(text, node, p1, p2, node))
 		return node
-	def addmf(self, p1, p2, cs, text):
+	def addmf(self, text, p1, p2, cs):
 		if not self.mlog:
 			p1text = self.revmap.get(p1, Mtree).text()
 			self.mlog.append(Rev(p1text, p1, hg.NULLID, hg.NULLID,
@@ -220,7 +220,7 @@ class RevCache(object):
 		node = hg.hash(text, p1, p2)
 		self.mlog.append(Rev(text, node, p1, p2, cs))
 		return node
-	def addfile(self, path, p1, p2, cs, text):
+	def addfile(self, text, path, p1, p2, cs):
 		revs = self.flog.setdefault(path, [])
 		if not revs:
 			p1text = self.revmap.get(p1, Ftree).text()
