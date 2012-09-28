@@ -169,7 +169,17 @@ def filecontent(ftree):
 
 class revmap(object):
 	def __init__(self, ref):
-		self.rmap = {e[3]: e[2] for e in rawtree(ref)}
+		self.revs = {e[3]: e[2] for e in rawtree(ref)}
+		self.cache = {}
+		self.new = {}
+	def get(self, idorsha, func):
+		# func is read[cmf]tree
+		tree = self.new.get(idorsha) or self.cache.get(idorsha)
+		if tree:
+			return tree
+		tree = func(self.revs[idorsha])
+		cache[idorsha] = tree
+		return tree
 
 class revcache(object):
 	def __init__(self, revmap):
