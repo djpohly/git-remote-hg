@@ -115,54 +115,70 @@ def rawblob(obj):
 	return subprocess.check_output(args)
 
 class Ftree(object):
-	def __init__(self, treesha):
+	def __init__(self, sha, nodeid, extra):
+		self.sha = sha
+		self.nodeid = nodeid
+		self.extra = extra
+	def fromsha(treesha):
 		tree = rawtree(treesha)
-		self.sha = self.nodeid = None
-		self.extra = {}
-		for ent in tree:
-			# XXX CalledProcessError here means git repo corrupted
-			# (sub-objects lost)
-			if ent[3] == "sha":
-				self.sha = rawblob(ent[2])
-			elif ent[3] == "nodeid":
-				self.nodeid = rawblob(ent[2])
-			elif ent[3].startswith("extra."):
-				name = ent[3][6:].replace(": ", "/")
-				self.extra[name] = rawblob(ent[2])
-	def text(self):
-		return hg.buildfile(rawblob(self.sha), self.extra)
-class Mtree(object):
-	def __init__(self, treesha):
-		tree = rawtree(treesha, recurse=True)
-		self.sha = self.nodeid = None
-		self.files = {}
-		for ent in tree:
-			# XXX CalledProcessError here means git repo corrupted
-			# (sub-objects lost)
-			if ent[3] == "sha":
-				self.sha = rawblob(ent[2])
-			elif ent[3] == "nodeid":
-				self.nodeid = rawblob(ent[2])
-			elif ent[3].startswith("file/") and \
-			     ent[3].endswith("/nodeid"):
-				self.files[ent[3][5:-7]] = rawblob(ent[2])
-class Ctree(object):
-	def __init__(self, treesha):
-		tree = rawtree(treesha)
-		self.sha = self.nodeid = self.mf = None
+		sha = nodeid = None
 		extra = {}
 		for ent in tree:
 			# XXX CalledProcessError here means git repo corrupted
 			# (sub-objects lost)
 			if ent[3] == "sha":
-				self.sha = rawblob(ent[2])
+				sha = rawblob(ent[2])
 			elif ent[3] == "nodeid":
-				self.nodeid = rawblob(ent[2])
-			elif ent[3] == "mf":
-				self.mf = rawblob(ent[2])
+				nodeid = rawblob(ent[2])
 			elif ent[3].startswith("extra."):
 				name = ent[3][6:].replace(": ", "/")
-				self.extra[name] = rawblob(ent[2])
+				extra[name] = rawblob(ent[2])
+		return sha and nodeid and Ftree(sha, nodeid, extra)
+	def text(self):
+		return hg.buildfile(rawblob(self.sha), self.extra)
+class Mtree(object):
+	def __init__(self, sha, nodeid, files):
+		self.sha = sha
+		self.nodeid = nodeid
+		self.files = files
+	def fromsha(treesha):
+		tree = rawtree(treesha, recurse=True)
+		sha = nodeid = None
+		files = {}
+		for ent in tree:
+			# XXX CalledProcessError here means git repo corrupted
+			# (sub-objects lost)
+			if ent[3] == "sha":
+				sha = rawblob(ent[2])
+			elif ent[3] == "nodeid":
+				nodeid = rawblob(ent[2])
+			elif ent[3].startswith("file/") and \
+			     ent[3].endswith("/nodeid"):
+				files[ent[3][5:-7]] = rawblob(ent[2])
+		return sha and nodeid and Mtree(sha, nodeid, files)
+class Ctree(object):
+	def __init__(self, sha, nodeid, mf, extra):
+		self.sha = sha
+		self.nodeid = nodeid
+		self.mf = mf
+		self.extra = extra
+	def fromsha(treesha):
+		tree = rawtree(treesha)
+		sha = nodeid = mf = None
+		extra = {}
+		for ent in tree:
+			# XXX CalledProcessError here means git repo corrupted
+			# (sub-objects lost)
+			if ent[3] == "sha":
+				sha = rawblob(ent[2])
+			elif ent[3] == "nodeid":
+				nodeid = rawblob(ent[2])
+			elif ent[3] == "mf":
+				mf = rawblob(ent[2])
+			elif ent[3].startswith("extra."):
+				name = ent[3][6:].replace(": ", "/")
+				extra[name] = rawblob(ent[2])
+		return sha and nodeid and mf and Ctree(sha, nodeid, mf, extra)
 
 class RevMap(object):
 	def __init__(self, ref):
