@@ -17,8 +17,7 @@ import sys, collections, subprocess
 import mercutil as hg
 
 
-# XXX change text to delta
-Rev = collections.namedtuple("Rev", ["text", "nodeid", "p1", "p2", "cs"])
+Rev = collections.namedtuple("Rev", ["delta", "nodeid", "p1", "p2", "cs"])
 
 verbosity = 1
 dryrun = False
@@ -198,36 +197,54 @@ class RevMap(object):
 		test = self.new.setdefault(tree)
 		assert test.nodeid == tree.nodeid
 
+RevLog = collections.namedtuple("RevLog", ["log", "base"])
 class RevCache(object):
 	def __init__(self, revmap):
-		self.clog = []
-		self.mlog = []
-		self.flog = {}
+		self.csets = None
+		self.mfs = None
+		self.files = {}
 		self.revmap = revmap
 	def addcset(self, text, p1, p2):
-		if not self.clog:
-			p1text = self.revmap.get(p1, Ctree).text()
-			self.clog.append(Rev(p1text, p1, hg.NULLID, hg.NULLID,
-			                     hg.NULLID))
+		try:
+			log, base = self.csets
+		except TypeError:
+			log = []
+			if p1 == hg.NULLID:
+				base = ""
+			else:
+				base = self.revmap.get(p1, Ctree).text()
 		node = hg.hash(text, p1, p2)
-		self.clog.append(Rev(text, node, p1, p2, node))
+		delta = hg.textdiff(base, text)
+		log.append(Rev(delta, node, p1, p2, node))
+		self.csets = RevLog(log, text)
 		return node
 	def addmf(self, text, p1, p2, cs):
-		if not self.mlog:
-			p1text = self.revmap.get(p1, Mtree).text()
-			self.mlog.append(Rev(p1text, p1, hg.NULLID, hg.NULLID,
-			                     hg.NULLID))
+		try:
+			log, base = self.mfs
+		except TypeError:
+			log = []
+			if p1 == hg.NULLID:
+				base = ""
+			else:
+				base = self.revmap.get(p1, Mtree).text()
 		node = hg.hash(text, p1, p2)
-		self.mlog.append(Rev(text, node, p1, p2, cs))
+		delta = hg.textdiff(base, text)
+		log.append(Rev(delta, node, p1, p2, cs))
+		self.mfs = RevLog(log, text)
 		return node
-	def addfile(self, text, path, p1, p2, cs):
-		revs = self.flog.setdefault(path, [])
-		if not revs:
-			p1text = self.revmap.get(p1, Ftree).text()
-			revs.append(Rev(p1text, p1, hg.NULLID, hg.NULLID,
-			                hg.NULLID))
+	def addfile(self, path, text, p1, p2, cs):
+		try:
+			log, base = self.files[path]
+		except KeyError:
+			log = []
+			if p1 == hg.NULLID:
+				base = ""
+			else:
+				base = self.revmap.get(p1, Ftree).text()
 		node = hg.hash(text, p1, p2)
-		revs.append(Rev(text, node, p1, p2, cs))
+		delta = hg.textdiff(base, text)
+		log.append(Rev(delta, node, p1, p2, cs))
+		self.files[path] = RevLog(log, text)
 		return node
 	def tobundle(self):
 		return hg.makebundle(self.clog, self.mlog, self.flog)
