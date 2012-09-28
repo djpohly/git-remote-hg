@@ -1,4 +1,3 @@
-* Have revcache store deltas only and not full object text
 * Implement mercutil.makebundle
 * Consider using a single `cat-file --batch' to save some fork+execs
 * Split calls to git into their own module, as they don't seem to rely on any

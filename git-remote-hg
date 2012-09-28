@@ -17,8 +17,6 @@ import sys, collections, subprocess
 import mercutil as hg
 
 
-Rev = collections.namedtuple("Rev", ["delta", "nodeid", "p1", "p2", "cs"])
-
 verbosity = 1
 dryrun = False
 
@@ -197,6 +195,7 @@ class RevMap(object):
 		test = self.new.setdefault(tree)
 		assert test.nodeid == tree.nodeid
 
+Rev = collections.namedtuple("Rev", ["delta", "nodeid", "p1", "p2", "cs"])
 RevLog = collections.namedtuple("RevLog", ["log", "base"])
 class RevCache(object):
 	def __init__(self, revmap):
@@ -204,47 +203,33 @@ class RevCache(object):
 		self.mfs = None
 		self.files = {}
 		self.revmap = revmap
-	def addcset(self, text, p1, p2):
+	def _addentry(self, revlog, text, p1, p2, cs, func):
 		try:
-			log, base = self.csets
+			log, base = revlog
 		except TypeError:
 			log = []
 			if p1 == hg.NULLID:
 				base = ""
 			else:
-				base = self.revmap.get(p1, Ctree).text()
+				base = self.revmap.get(p1, func).text()
 		node = hg.hash(text, p1, p2)
 		delta = hg.textdiff(base, text)
-		log.append(Rev(delta, node, p1, p2, node))
-		self.csets = RevLog(log, text)
+		log.append(Rev(delta, node, p1, p2, cs))
+		return RevLog(log, text), node
+	def addcset(self, text, p1, p2):
+		revlog, node = self._addentry(self.csets, text, p1, p2, None,
+		                              Ctree)
+		self.csets = revlog
 		return node
 	def addmf(self, text, p1, p2, cs):
-		try:
-			log, base = self.mfs
-		except TypeError:
-			log = []
-			if p1 == hg.NULLID:
-				base = ""
-			else:
-				base = self.revmap.get(p1, Mtree).text()
-		node = hg.hash(text, p1, p2)
-		delta = hg.textdiff(base, text)
-		log.append(Rev(delta, node, p1, p2, cs))
-		self.mfs = RevLog(log, text)
+		revlog, node = self._addentry(self.mfs, text, p1, p2, cs,
+		                              Mtree)
+		self.mfs = revlog
 		return node
 	def addfile(self, path, text, p1, p2, cs):
-		try:
-			log, base = self.files[path]
-		except KeyError:
-			log = []
-			if p1 == hg.NULLID:
-				base = ""
-			else:
-				base = self.revmap.get(p1, Ftree).text()
-		node = hg.hash(text, p1, p2)
-		delta = hg.textdiff(base, text)
-		log.append(Rev(delta, node, p1, p2, cs))
-		self.files[path] = RevLog(log, text)
+		revlog, node = self._addentry(self.files.get(path), text,
+		                              p1, p2, cs, Ftree)
+		self.files[path] = revlog
 		return node
 	def tobundle(self):
 		return hg.makebundle(self.clog, self.mlog, self.flog)
