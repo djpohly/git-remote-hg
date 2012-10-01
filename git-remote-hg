@@ -232,7 +232,7 @@ class RevCache(object):
 		self.files[path] = revlog
 		return node
 	def tobundle(self):
-		return hg.makebundle(self.clog, self.mlog, self.flog)
+		return hg.makebundle(self.csets, self.mfs, self.files)
 
 def main():
 	"""Main function for Mercurial helper."""
