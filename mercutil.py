@@ -30,5 +30,21 @@ def buildfile(text, extra=None):
 	return "\1\n%s\1\n%s" % (filelog._packmeta(extra), text)
 
 def makebundle(clog, mlog, flog):
-	# XXX implement once we decide how to store deltified logs
-	raise NotImplementedError
+	def tochunk(rev):
+		chunk = ""
+		for i in (rev.nodeid, rev.p1, rev.p2, rev.cs):
+			if i is None:
+				chunk += node.bin(rev.nodeid)
+			else:
+				chunk += node.bin(i)
+		chunk += delta
+		return struct.pack(">l", len(chunk)) + chunk
+	def togroup(log):
+		group = ""
+		for rev in log.log:
+			group += tochunk(rev)
+		return group + struct.pack(">l", 0)
+	bundle = togroup(clog) + togroup(mlog)
+	for path, log in flog.iteritems():
+		bundle += len(path) + path + togroup(log)
+	return bundle

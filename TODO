@@ -1,4 +1,5 @@
-* Implement mercutil.makebundle
+* Move hashing out of RevCache - it needs to be done when (re)building the
+  revmap instead
 * Consider using a single `cat-file --batch' to save some fork+execs
 * Split calls to git into their own module, as they don't seem to rely on any
   of the other code.  Perhaps create a class to encapsulate?
