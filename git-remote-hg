@@ -116,21 +116,6 @@ class Ftree(object):
 		self.sha = sha
 		self.nodeid = nodeid
 		self.extra = extra
-	def fromsha(treesha):
-		tree = rawtree(treesha)
-		sha = nodeid = None
-		extra = {}
-		for ent in tree:
-			# XXX CalledProcessError here means git repo corrupted
-			# (sub-objects lost)
-			if ent[3] == "sha":
-				sha = rawblob(ent[2])
-			elif ent[3] == "nodeid":
-				nodeid = rawblob(ent[2])
-			elif ent[3].startswith("extra."):
-				name = ent[3][6:].replace(": ", "/")
-				extra[name] = rawblob(ent[2])
-		return sha and nodeid and Ftree(sha, nodeid, extra)
 	def text(self):
 		return hg.buildfile(rawblob(self.sha), self.extra)
 class Mtree(object):
@@ -138,57 +123,45 @@ class Mtree(object):
 		self.sha = sha
 		self.nodeid = nodeid
 		self.files = files
-	def fromsha(treesha):
-		tree = rawtree(treesha, recurse=True)
-		sha = nodeid = None
-		files = {}
-		for ent in tree:
-			# XXX CalledProcessError here means git repo corrupted
-			# (sub-objects lost)
-			if ent[3] == "sha":
-				sha = rawblob(ent[2])
-			elif ent[3] == "nodeid":
-				nodeid = rawblob(ent[2])
-			elif ent[3].startswith("file/") and \
-			     ent[3].endswith("/nodeid"):
-				files[ent[3][5:-7]] = rawblob(ent[2])
-		return sha and nodeid and Mtree(sha, nodeid, files)
 class Ctree(object):
 	def __init__(self, sha, nodeid, mf, extra):
 		self.sha = sha
 		self.nodeid = nodeid
 		self.mf = mf
 		self.extra = extra
-	def fromsha(treesha):
-		tree = rawtree(treesha)
-		sha = nodeid = mf = None
-		extra = {}
-		for ent in tree:
-			# XXX CalledProcessError here means git repo corrupted
-			# (sub-objects lost)
-			if ent[3] == "sha":
-				sha = rawblob(ent[2])
-			elif ent[3] == "nodeid":
-				nodeid = rawblob(ent[2])
-			elif ent[3] == "mf":
-				mf = rawblob(ent[2])
-			elif ent[3].startswith("extra."):
-				name = ent[3][6:].replace(": ", "/")
-				extra[name] = rawblob(ent[2])
-		return sha and nodeid and mf and Ctree(sha, nodeid, mf, extra)
+def treefromsha(treesha):
+	sha = nodeid = mtree = ftree = None
+	extra = {}
+	tree = rawtree(treesha)
+	for ent in tree:
+		if ent[3] == "sha":
+			sha = rawblob(ent[2])
+		elif ent[3] == "nodeid":
+			nodeid = rawblob(ent[2])
+		elif ent[3] == "mtree":
+			mtree = ent[2]
+		elif ent[3] == "ftree":
+			ftree = ent[2]
+		elif ent[3].startswith("extra."):
+			name = ent[3][6:].replace(": ", "/")
+			extra[name] = rawblob(ent[2])
+	if mtree:
+		return Ctree(sha, nodeid, mtree, extra)
+	if ftree:
+		return Mtree(sha, nodeid, ftree)
+	return Ftree(sha, nodeid, extra)
 
 class RevMap(object):
 	def __init__(self, ref):
 		self.revs = {e[3]: e[2] for e in rawtree(ref)}
 		self.cache = {}
 		self.new = {}
-	def get(self, idorsha, func):
-		# func is read[cmf]tree
+	def get(self, idorsha):
 		tree = self.new.get(idorsha) or self.cache.get(idorsha)
 		if tree:
 			return tree
-		tree = func(self.revs[idorsha])
-		cache[idorsha] = tree
+		tree = treefromsha(self.revs[idorsha])
+		self.cache[idorsha] = tree
 		return tree
 	def add(self, idorsha, tree):
 		# If we do add a duplicate, it had better be exactly the same
@@ -254,7 +227,7 @@ class RevCache(object):
 		self.mfs = None
 		self.files = {}
 		self.revmap = revmap
-	def _addentry(self, revlog, text, p1, p2, cs, func):
+	def _addentry(self, revlog, text, nodeid, p1, p2, cs):
 		try:
 			log, base = revlog
 		except TypeError:
@@ -262,25 +235,20 @@ class RevCache(object):
 			if p1 == hg.NULLID:
 				base = ""
 			else:
-				base = self.revmap.get(p1, func).text()
-		node = hg.hash(text, p1, p2)
+				base = self.revmap.get(p1).text()
 		delta = hg.textdiff(base, text)
-		log.append(Rev(delta, node, p1, p2, cs))
-		return RevLog(log, text), node
-	def addcset(self, text, p1, p2):
-		revlog, node = self._addentry(self.csets, text, p1, p2, None,
-		                              Ctree)
-		self.csets = revlog
+		log.append(Rev(delta, nodeid, p1, p2, cs))
+		return RevLog(log, text)
+	def addcset(self, text, nodeid, p1, p2):
+		self.csets = self._addentry(self.csets, text, nodeid, p1, p2,
+		                            nodeid)
 		return node
-	def addmf(self, text, p1, p2, cs):
-		revlog, node = self._addentry(self.mfs, text, p1, p2, cs,
-		                              Mtree)
-		self.mfs = revlog
+	def addmf(self, text, nodeid, p1, p2, cs):
+		self.mfs = self._addentry(self.mfs, text, nodeid, p1, p2, cs)
 		return node
-	def addfile(self, path, text, p1, p2, cs):
-		revlog, node = self._addentry(self.files.get(path), text,
-		                              p1, p2, cs, Ftree)
-		self.files[path] = revlog
+	def addfile(self, path, text, nodeid, p1, p2, cs):
+		self.files[path] = self._addentry(self.files.get(path), text,
+		                                  nodeid, p1, p2, cs)
 		return node
 	def tobundle(self):
 		return hg.makebundle(self.csets, self.mfs, self.files)
