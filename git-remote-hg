@@ -194,6 +194,57 @@ class RevMap(object):
 		# If we do add a duplicate, it had better be exactly the same
 		test = self.new.setdefault(tree)
 		assert test.nodeid == tree.nodeid
+	def newftree(self, blobsha, fp1, fp2, exc):
+		extra = applyextra(fp1.extra, exc.extra)
+		text = hg.buildfile(rawblob(blobsha), extra)
+		pn1 = fp1 and fp1.nodeid or NULLID
+		pn2 = fp2 and fp2.nodeid or NULLID
+		nodeid = hg.hash(text, pn1, pn2)
+		return Ftree(blobsha, nodeid, extra)
+	def newmtree(self, treesha, mp1, mp2, exc):
+		files = {}
+		changed = []
+		for ent in rawtree(treesha, recurse=True):
+			fname = ent[3]
+			if exc.f[fname].parent:
+				# XXX handle it
+				raise NotImplementedError
+			fp1 = mp1 and mp1.ftree.get(fname)
+			fp2 = mp2 and mp2.ftree.get(fname)
+			if fp1 and ent[2] == fp1.sha and \
+			               (not fp2 or ent[2] == fp2.sha):
+				files[fname] = fp1
+			else:
+				files[fname] = self.newftree(ent[3], fp1, fp2,
+				                             exc.f[fname])
+				changed.append(fname)
+		text = "".join(["%s\0%s%s\n" % (path, f.nodeid, f.flags) for
+		                path, f in sorted(files.items())])
+		pn1 = mp1 and mp1.nodeid or NULLID
+		pn2 = mp2 and mp2.nodeid or NULLID
+		nodeid = hg.hash(text, mp1.nodeid, mp2.nodeid)
+		return Mtree(treesha, nodeid, files), changed
+	def newctree(self, commitsha):
+		tree, author, date, p1, p2, msg, exc = \
+		              parsecommit(rawcommit(commitsha))
+		if exc.m.parent:
+			# XXX handle it
+			raise NotImplementedError
+		mp1 = p1 and p1.mtree
+		mp2 = p2 and p2.mtree
+		if mp1 and tree == mp1.sha and (not mp2 or tree == mp2.sha):
+			mtree = mp1
+		else:
+			mtree = self.newmtree(tree, mp1, mp2, exc)
+		extra = applyextra(p1.extra, exc.c.extra)
+		changed = difftree(mp1.sha, tree)
+		text = "%s\n%s\n%d %d %s\n%s\n\n%s" % (mtree.nodeid, author,
+		                    date.secs, date.tz, hg.commitextra(extra),
+		                    "\n".join(changed), msg)
+		pn1 = p1 and p1.nodeid or NULLID
+		pn2 = p2 and p2.nodeid or NULLID
+		nodeid = hg.hash(text, pn1, pn2)
+		return Ctree(commitsha, nodeid, mtree.nodeid, extra)
 
 Rev = collections.namedtuple("Rev", ["delta", "nodeid", "p1", "p2", "cs"])
 RevLog = collections.namedtuple("RevLog", ["log", "base"])
