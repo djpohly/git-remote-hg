@@ -1,0 +1,70 @@
+Revision map format
+===================
+
+The revision map (revmap) is a collection of tree objects which cache the
+metadata needed to interact with a Mercurial server.  In theory, the revmap is
+unnecessary, since metadata which affects Mercurial nodeids is stored in the
+Git commits' metadata.  However, to avoid having to rebuild objects from the
+root commit(s) every time we interact with the Mercurial remote, we cache some
+of this information.
+
+A revmap from any other repository can be fetched and used to update the
+current revmap, since all of the metadata is managed by Git.  We use the
+`refs/hg/revmap` ref to keep track of the current map.  Each time the revmap
+is updated, we commit the new version onto this ref.
+
+Each distinct Mercurial changeset, manifest, or file revision has a
+corresponding tree in the revmap (Ctree, Mtree, or Ftree respectively).  These
+trees have the following contents:
+
+*Ftree*::
+* +sha+: hexadecimal SHA of the blob corresponding to this file rev
+* +nodeid+: hexadecimal nodeid of the file rev
+* +extra.'key'+: value of the extra field 'key' in the file's metadata
+  dictionary
+
+*Mtree*::
+* +sha+: hexadecimal SHA of the (root) tree corresponding to this manifest rev
+* +nodeid+: hexadecimal nodeid of the manifest rev
+* +ftree/'path'+: hexadecimal SHA of the Ftree for the file at 'path'
+
+*Ctree*::
+* +sha+: hexadecimal SHA of the commit corresponding to this changeset rev
+* +nodeid+: hexadecimal nodeid of the changeset rev
+* +mtree+: hexadecimal SHA of the Mtree for this commit's manifest
+* +extra.'key'+: value of the extra field 'key' in the commit's metadata
+
+Note that the entries labeled ``hexadecimal SHA/nodeid'' actually point to
+small blobs containing the hash rather than to the objects themselves.  This
+is to facilitate the use of `git ls-tree -r` when reading Mtrees.
+
+.SHA blobs
+***************************
+Originally, Ctrees pointed directly to Mtrees, which pointed directly to their
+subordinate Ftrees.  The intent behind this was to ensure that fetching a
+Ctree would fetch all of its components and history as well.  However, after
+noting that the ancestry of Mercurial revisions did not need to be stored in
+the revmap, this became a bit of a moot point.  It became even more so after
+the realization that revmap commits would provide the same result without
+inter-tree links.
+***************************
+
+The root tree of the revmap then indexes all of the known C/M/Ftrees by
+nodeid, as well as by SHA for Ctrees.
+
+.Mapping objects
+***************************
+Mercurial revs and Git objects do not necessarily have a one-to-one
+correspondence, since the two systems have different ideas of what should
+affect an object/rev's hash.  Mercurial includes the parents of manifests and
+files in its calculations, as well as metadata about a file's history (such as
+rename tracking).  Git includes neither, relying only on the hierarchy of
+commits to provide such information.  Because of this, it is possible to have
+two file revs or two manifest revs with different nodeids hash to the same SHA
+in Git.  If this happened for the manifests of two otherwise-identical
+changesets, the same problem would happen for commits, leaving us with no
+one-to-one mappings to use.  We fix this by noting extra metadata or unusual
+parenthood in the commits themselves, guaranteeing that there we can always
+get back and forth between a single commit and a single changeset, and working
+our way down to trees and blobs from there.
+***************************
