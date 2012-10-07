@@ -122,7 +122,9 @@ class RevMap(object):
 		pn1 = fp1 and fp1.nodeid or NULLID
 		pn2 = fp2 and fp2.nodeid or NULLID
 		nodeid = hg.hash(text, pn1, pn2)
-		return Ftree(blobsha, nodeid, extra)
+		ftree = Ftree(blobsha, nodeid, extra)
+		self.add(nodeid, ftree)
+		return ftree
 	def newmtree(self, treesha, mp1, mp2, exc):
 		files = {}
 		changed = []
@@ -145,7 +147,9 @@ class RevMap(object):
 		pn1 = mp1 and mp1.nodeid or NULLID
 		pn2 = mp2 and mp2.nodeid or NULLID
 		nodeid = hg.hash(text, mp1.nodeid, mp2.nodeid)
-		return Mtree(treesha, nodeid, files), changed
+		mtree = Mtree(treesha, nodeid, files)
+		self.add(nodeid, mtree)
+		return mtree, changed
 	def newctree(self, commitsha):
 		tree, author, date, p1, p2, msg, exc = \
 		              parsecommit(rawcommit(commitsha))
@@ -156,17 +160,20 @@ class RevMap(object):
 		mp2 = p2 and p2.mtree
 		if mp1 and tree == mp1.sha and (not mp2 or tree == mp2.sha):
 			mtree = mp1
+			changed = []
 		else:
-			mtree = self.newmtree(tree, mp1, mp2, exc)
+			mtree, changed = self.newmtree(tree, mp1, mp2, exc)
 		extra = applyextra(p1.extra, exc.c.extra)
-		changed = difftree(mp1.sha, tree)
 		text = "%s\n%s\n%d %d %s\n%s\n\n%s" % (mtree.nodeid, author,
 		                    date.secs, date.tz, hg.commitextra(extra),
 		                    "\n".join(changed), msg)
 		pn1 = p1 and p1.nodeid or NULLID
 		pn2 = p2 and p2.nodeid or NULLID
 		nodeid = hg.hash(text, pn1, pn2)
-		return Ctree(commitsha, nodeid, mtree.nodeid, extra)
+		ctree = Ctree(commitsha, nodeid, mtree.nodeid, extra)
+		self.add(nodeid, ctree)
+		self.add(commitsha, ctree)
+		return ctree
 
 Rev = collections.namedtuple("Rev", ["delta", "nodeid", "p1", "p2", "cs"])
 RevLog = collections.namedtuple("RevLog", ["log", "base"])
