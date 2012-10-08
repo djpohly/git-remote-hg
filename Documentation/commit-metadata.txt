@@ -1,0 +1,89 @@
+Metadata stored in commits
+==========================
+
+In order to provide a one-to-one mapping between Mercurial changesets and Git
+commits, we need to augment the commits with some extra metadata.  (See
+`object-mapping.txt` for details.)  For this mapping to work, we have to
+ensure that converting a given Mercurial changeset will always generate
+exactly the same Git commit and vice versa.
+
+In Git, the only place we can store arbitrary metadata without interfering
+with the contents of the repository is in commit objects.  We have two options
+for how to do this.  We can tack the metadata onto the end of the commit
+message, or we can insert it as an extra commit header.  If we decide to
+change from one to the other at some point in the future, it should be easy
+enough to convert using `git-filter-branch`.
+
+In either case, we only store important _changes_ to the metadata, so that
+commits created using normal Git means will not unintentionally affect
+properties of the Mercurial objects.
+
+Commit message
+--------------
+
+This is the simpler way to store metadata, and it has the advantage that it
+can be done using existing Git porcelain.  In addition, if the user wants to
+change some of the metadata (such as putting a commit on a new named branch),
+it can be done easily at commit-time by editing the commit message.
+
+The disadvantages of this method stem from the fact that commit messages
+aren't interpreted as metadata by existing Git commands.  Changes to this
+metadata will appear in the output of `git-log`.  It would be possible
+(although unlikely) for a peculiarly-formed log message to interfere with the
+metadata unintentionally.
+
+Using this method, a commit object looks like this:
+
+----
+tree 8383838383838838383838383838383838383838
+parent 2727277272727727727272772727277272727227
+author A. U. Thor <author@example.com> 1234567890 -0100
+committer A. U. Thor <author@example.com> 1234567890 -0100
+
+add foo to bar
+
+bar needed a foo, so we added one.
+
+%hg.cextra: branch namedbr
+%hg.fextra: file/has\ space/and\nnewline metaname metavalue
+----
+
+Since these messages do appear in `git-log` output, we try to keep them on one
+line.  We therefore use spaces as a delimiter and therefore have to escape
+spaces, newlines, and backslashes.  A backslash should not be followed by
+anything other than a space, the letter `n', or another backslash.
+
+Extra commit header
+-------------------
+
+Extra headers, unlike commit messages, are actually designed for commit
+metadata, which doesn't appear when displaying log messages.  At the moment,
+however, they are a relatively new feature with no user-facing interface.  If
+we were to choose this option, we would need to provide an alternative to
+`git-commit` which uses plumbing to create a commit with additional headers.
+
+Using this method, a commit object looks like this:
+
+----
+tree 8383838383838838383838383838383838383838
+parent 2727277272727727727272772727277272727227
+author A. U. Thor <author@example.com> 1234567890 -0100
+committer A. U. Thor <author@example.com> 1234567890 -0100
+hg.cextra: branch
+ namedbr
+hg.fextra: file/has space/and\nnewline
+ metaname
+ metavalue
+
+add foo to bar
+
+bar needed a foo, so we added one.
+----
+
+We can use the same escaping here as in the previous case, or we can take
+advantage of Git's built-in newline handling so that we don't have to escape
+spaces.
+
+////
+vim:set ft=asciidoc:
+////
