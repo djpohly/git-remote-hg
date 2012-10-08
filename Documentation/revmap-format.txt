@@ -39,7 +39,7 @@ small blobs containing the hash rather than to the objects themselves.  This
 is to facilitate the use of `git ls-tree -r` when reading Mtrees.
 
 .SHA blobs
-***************************
+****
 Originally, Ctrees pointed directly to Mtrees, which pointed directly to their
 subordinate Ftrees.  The intent behind this was to ensure that fetching a
 Ctree would fetch all of its components and history as well.  However, after
@@ -47,13 +47,13 @@ noting that the ancestry of Mercurial revisions did not need to be stored in
 the revmap, this became a bit of a moot point.  It became even more so after
 the realization that revmap commits would provide the same result without
 inter-tree links.
-***************************
+****
 
 The root tree of the revmap then indexes all of the known C/M/Ftrees by
 nodeid, as well as by SHA for Ctrees.
 
 .Mapping objects
-***************************
+****
 Mercurial revs and Git objects do not necessarily have a one-to-one
 correspondence, since the two systems have different ideas of what should
 affect an object/rev's hash.  Mercurial includes the parents of manifests and
@@ -67,4 +67,8 @@ one-to-one mappings to use.  We fix this by noting extra metadata or unusual
 parenthood in the commits themselves, guaranteeing that there we can always
 get back and forth between a single commit and a single changeset, and working
 our way down to trees and blobs from there.
-***************************
+****
+
+////
+vim:set ft=asciidoc:
+////
