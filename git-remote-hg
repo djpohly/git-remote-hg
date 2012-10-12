@@ -224,17 +224,17 @@ class HgRemote(object):
 		self.refmap = {}
 		seen = set()
 		# Give bookmarks priority
-		for name, sha in self.peer.bookmarks().iteritems():
+		for name, sha in self.peer.bookmarks().viewitems():
 			self.refmap["bm/" + name] = sha
 			seen.add(sha)
 
 		# branchmap() returns heads in recency order, tip first
 		branchmap = self.peer.branchmap()
-		for name, heads in branchmap.iteritems():
+		for name, heads in branchmap.viewitems():
 			for i, sha in enumerate([h for h in heads
 			                         if h not in seen]):
 				self.refmap["br/" + name + "/" + str(i)] = sha
-		dbgprint(*["? " + name for name in self.refmap.iterkeys()],
+		dbgprint(*["? " + name for name in self.refmap.viewkeys()],
 		         sep="\n")
 
 		# What do we want to map HEAD to?

@@ -19,7 +19,7 @@ class Peer(object):
 
 	def branchmap(self):
 		return {name: [node.hex(h) for h in heads]
-		        for name, heads in self.p.branchmap()}
+		        for name, heads in self.p.branchmap().viewitems()}
 
 	def bookmarks(self):
 		return self.p.listkeys("bookmarks")
@@ -45,6 +45,6 @@ def makebundle(clog, mlog, flog):
 			group += tochunk(rev)
 		return group + struct.pack(">l", 0)
 	bundle = togroup(clog) + togroup(mlog)
-	for path, log in flog.iteritems():
+	for path, log in flog.viewitems():
 		bundle += len(path) + path + togroup(log)
 	return bundle
