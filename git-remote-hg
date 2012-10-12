@@ -48,57 +48,6 @@ def option_dryrun(val):
 		dbgprint("error dry-run not true|false")
 
 
-class HgRemote(object):
-	def __init__(self, hgui, url, name):
-		self.ui = hgui
-		self.peer = hg.Peer(self.ui, url)
-		self.name = name
-		self.refmap = {}
-
-	def capabilities(self):
-		#dbgprint("option")
-		dbgprint("fetch")
-		dbgprint("import")
-		dbgprint("push")
-		if self.name:
-			dbgprint("refspec refs/heads/*:refs/remotes/%s/*" %
-			         self.name)
-		dbgprint()
-		sys.stdout.flush()
-
-	def list(self):
-		self.refmap = {}
-		seen = set()
-		# Give bookmarks priority
-		for name, sha in self.peer.bookmarks().iteritems():
-			self.refmap["bm/" + name] = sha
-			seen.add(sha)
-
-		# branchmap() returns heads in recency order, tip first
-		branchmap = self.peer.branchmap()
-		for name, heads in branchmap.iteritems():
-			for i, sha in enumerate([h for h in heads
-			                         if h not in seen]):
-				self.refmap["br/" + name + "/" + str(i)] = sha
-		dbgprint(*["? " + name for name in self.refmap.iterkeys()],
-		         sep="\n")
-
-		# What do we want to map HEAD to?
-		# - Tipmost revision on default branch?  Good for initial
-		#   clone.
-		# - Depends on TKPA of previous remote HEAD?  Sounds plausible.
-		self.refmap["HEAD"] = branchmap["default"][0]
-		dbgprint("? HEAD")
-
-		dbgprint()
-		sys.stdout.flush()
-
-	def fastimport(self, ref):
-		die("import not yet implemented")
-
-	def push(self, ref):
-		die("push not yet implemented")
-
 def rawtree(treeish, recurse=False):
 	# XXX CalledProcessError here means treeish not found/valid
 	args = ["git", "ls-tree", treeish]
@@ -252,6 +201,57 @@ class RevCache(object):
 		return node
 	def tobundle(self):
 		return hg.makebundle(self.csets, self.mfs, self.files)
+
+class HgRemote(object):
+	def __init__(self, hgui, url, name):
+		self.ui = hgui
+		self.peer = hg.Peer(self.ui, url)
+		self.name = name
+		self.refmap = {}
+
+	def capabilities(self):
+		#dbgprint("option")
+		dbgprint("fetch")
+		dbgprint("import")
+		dbgprint("push")
+		if self.name:
+			dbgprint("refspec refs/heads/*:refs/remotes/%s/*" %
+			         self.name)
+		dbgprint()
+		sys.stdout.flush()
+
+	def list(self):
+		self.refmap = {}
+		seen = set()
+		# Give bookmarks priority
+		for name, sha in self.peer.bookmarks().iteritems():
+			self.refmap["bm/" + name] = sha
+			seen.add(sha)
+
+		# branchmap() returns heads in recency order, tip first
+		branchmap = self.peer.branchmap()
+		for name, heads in branchmap.iteritems():
+			for i, sha in enumerate([h for h in heads
+			                         if h not in seen]):
+				self.refmap["br/" + name + "/" + str(i)] = sha
+		dbgprint(*["? " + name for name in self.refmap.iterkeys()],
+		         sep="\n")
+
+		# What do we want to map HEAD to?
+		# - Tipmost revision on default branch?  Good for initial
+		#   clone.
+		# - Depends on TKPA of previous remote HEAD?  Sounds plausible.
+		self.refmap["HEAD"] = branchmap["default"][0]
+		dbgprint("? HEAD")
+
+		dbgprint()
+		sys.stdout.flush()
+
+	def fastimport(self, ref):
+		die("import not yet implemented")
+
+	def push(self, ref):
+		die("push not yet implemented")
 
 def main():
 	"""Main function for Mercurial helper."""
