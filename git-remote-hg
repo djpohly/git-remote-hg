@@ -224,26 +224,27 @@ class HgRemote(object):
 		self.refmap = {}
 		seen = set()
 		# Give bookmarks priority
-		for name, sha in self.peer.bookmarks().viewitems():
-			self.refmap["bm/" + name] = sha
-			seen.add(sha)
+		for name, nodeid in self.peer.bookmarks().viewitems():
+			# XXX resolve to sha
+			self.refmap["bm/" + name] = None
+			seen.add(nodeid)
 
 		# branchmap() returns heads in recency order, tip first
 		branchmap = self.peer.branchmap()
 		for name, heads in branchmap.viewitems():
-			for i, sha in enumerate([h for h in heads
-			                         if h not in seen]):
-				self.refmap["br/" + name + "/" + str(i)] = sha
-		dbgprint(*["? " + name for name in self.refmap.viewkeys()],
-		         sep="\n")
+			for i, nodeid in enumerate((h for h in heads
+			                              if h not in seen)):
+				# XXX resolve to sha
+				self.refmap["br/" + name + "/" + str(i)] = None
 
 		# What do we want to map HEAD to?
 		# - Tipmost revision on default branch?  Good for initial
 		#   clone.
 		# - Depends on TKPA of previous remote HEAD?  Sounds plausible.
-		self.refmap["HEAD"] = branchmap["default"][0]
-		dbgprint("? HEAD")
+		self.refmap["HEAD"] = None # branchmap["default"][0]
 
+		dbgprint(*["%s %s" % (sha if sha else "?", name) for
+		           name, sha in self.refmap.viewitems()], sep="\n")
 		dbgprint()
 		sys.stdout.flush()
 
