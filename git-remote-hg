@@ -203,10 +203,11 @@ class RevCache(object):
 		return hg.makebundle(self.csets, self.mfs, self.files)
 
 class HgRemote(object):
-	def __init__(self, hgui, url, name):
+	def __init__(self, hgui, url, name, revmap):
 		self.ui = hgui
 		self.peer = hg.Peer(self.ui, url)
 		self.name = name
+		self.revmap = revmap
 		self.refmap = {}
 
 	def capabilities(self):
@@ -279,7 +280,7 @@ def main():
 	# Set up Mercurial objects: ui is settings/context
 	hgui = hg.Ui()
 	# XXX set up proxy options and other stuff in ui
-	remote = HgRemote(hgui, sys.argv[2], rname)
+	remote = HgRemote(hgui, sys.argv[2], rname, RevMap("refs/hg/revmap"))
 
 	# Handle commands issued by Git
 	cmd = sys.stdin.readline().split(None, 1)
