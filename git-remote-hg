@@ -253,6 +253,7 @@ class HgRemote(object):
 		die("import not yet implemented")
 
 	def push(self, ref):
+		cache = RevCache(self.revmap)
 		die("push not yet implemented")
 
 def parse_option(cmd):
