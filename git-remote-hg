@@ -235,8 +235,8 @@ class HgRemote(object):
 		seen = set()
 		# Give bookmarks priority
 		for name, nodeid in self.peer.bookmarks().viewitems():
-			# XXX resolve to sha
-			self.refmap["bm/" + name] = None
+			ctree = self.revmap.get(nodeid)
+			self.refmap["bm/" + name] = ctree and ctree.sha or None
 			seen.add(nodeid)
 
 		# branchmap() returns heads in recency order, tip first
@@ -244,8 +244,9 @@ class HgRemote(object):
 		for name, heads in branchmap.viewitems():
 			for i, nodeid in enumerate((h for h in heads
 			                              if h not in seen)):
-				# XXX resolve to sha
-				self.refmap["br/" + name + "/" + str(i)] = None
+				ctree = self.revmap.get(nodeid)
+				self.refmap["br/" + name + "/" + str(i)] = \
+				            ctree and ctree.sha or None
 
 		# What do we want to map HEAD to?
 		# - Tipmost revision on default branch?  Good for initial
