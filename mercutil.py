@@ -29,6 +29,22 @@ def buildfile(text, extra=None):
 		return text
 	return "\1\n%s\1\n%s" % (filelog._packmeta(extra), text)
 
+def buildmf(tree, files):
+	def modeflags(num):
+		mode = int(num, 8)
+		fl = ""
+		if mode & 0170000 == 0160000:
+			raise NotImplementedError, "Gitlink/submodule"
+		if mode & 0111 > 0:
+			fl += "x"
+		if mode & 0170000 == 0120000:
+			fl += "l"
+		return fl
+	s = ""
+	for ent in tree:
+		s += "%s\0%s%s\n" % (ent[3], files[ent[3]], modeflags(ent[0]))
+	return s
+
 def makebundle(clog, mlog, flog):
 	def tochunk(rev):
 		chunk = ""
