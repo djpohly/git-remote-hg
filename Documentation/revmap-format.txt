@@ -17,26 +17,23 @@ Each distinct Mercurial changeset, manifest, or file revision has a
 corresponding tree in the revmap (Ctree, Mtree, or Ftree respectively).  These
 trees have the following contents:
 
-*Ftree*::
-* +sha+: hexadecimal SHA of the blob corresponding to this file rev
-* +nodeid+: hexadecimal nodeid of the file rev
-* +extra.'key'+: value of the extra field 'key' in the file's metadata
-  dictionary
-
-*Mtree*::
-* +sha+: hexadecimal SHA of the (root) tree corresponding to this manifest rev
-* +nodeid+: hexadecimal nodeid of the manifest rev
-* +ftree/'path'+: hexadecimal SHA of the Ftree for the file at 'path'
-
 *Ctree*::
-* +sha+: hexadecimal SHA of the commit corresponding to this changeset rev
-* +nodeid+: hexadecimal nodeid of the changeset rev
-* +mtree+: hexadecimal SHA of the Mtree for this commit's manifest
+* +commit+: hexadecimal SHA of the commit corresponding to this changeset
+* +node+: hexadecimal nodeid of the changeset
+* +mf+: hexadecimal nodeid of this changeset's manifest
 * +extra.'key'+: value of the extra field 'key' in the commit's metadata
 
-Note that the entries labeled ``hexadecimal SHA/nodeid'' actually point to
-small blobs containing the hash rather than to the objects themselves.  This
-is to facilitate the use of `git ls-tree -r` when reading Mtrees.
+*Mtree*::
+* +tree+: hexadecimal SHA of the (root) tree corresponding to this manifest
+* +file/'path'/node+: hexadecimal nodeid of the file at 'path'
+
+*Ftree*::
+* +blob+: hexadecimal SHA of the blob corresponding to this file
+* +extra.'key'+: value of the extra field 'key' in the file's metadata
+
+Note that the entries labeled ``hexadecimal SHA'' actually point to small blobs
+containing the SHA rather than to the objects themselves.  This is to
+facilitate the use of `git ls-tree -r` when reading Mtrees.
 
 .SHA blobs
 ****

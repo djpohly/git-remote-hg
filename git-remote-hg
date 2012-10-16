@@ -60,45 +60,47 @@ def rawblob(obj):
 	args = ["git", "cat-file", "blob", obj]
 	return subprocess.check_output(args)
 
-class Ftree(object):
-	def __init__(self, sha, nodeid, extra):
+class Ctree(object):
+	def __init__(self, sha, node, mf, extra):
 		self.sha = sha
-		self.nodeid = nodeid
+		self.node = node
+		self.mf = mf
+		self.extra = extra
+class Mtree(object):
+	def __init__(self, sha, files):
+		self.sha = sha
+		self.files = files
+class Ftree(object):
+	def __init__(self, sha, extra):
+		self.sha = sha
 		self.extra = extra
 	def text(self):
 		return hg.buildfile(rawblob(self.sha), self.extra)
-class Mtree(object):
-	def __init__(self, sha, nodeid, files):
-		self.sha = sha
-		self.nodeid = nodeid
-		self.files = files
-class Ctree(object):
-	def __init__(self, sha, nodeid, mf, extra):
-		self.sha = sha
-		self.nodeid = nodeid
-		self.mf = mf
-		self.extra = extra
 def treefromsha(treesha):
-	sha = nodeid = mtree = ftree = None
+	mytype = sha = node = mf = None
 	extra = {}
-	tree = rawtree(treesha)
+	files = {}
+	tree = rawtree(treesha, recurse=True)
 	for ent in tree:
-		if ent[3] == "sha":
+		if ent[3] == "commit" or ent[3] == "tree" or ent[3] == "blob":
+			mytype = ent[3]
 			sha = rawblob(ent[2])
-		elif ent[3] == "nodeid":
-			nodeid = rawblob(ent[2])
-		elif ent[3] == "mtree":
-			mtree = ent[2]
-		elif ent[3] == "ftree":
-			ftree = ent[2]
+		elif ent[3] == "node":
+			node = rawblob(ent[2])
+		elif ent[3] == "mf":
+			mf = rawblob(ent[2])
 		elif ent[3].startswith("extra."):
 			name = ent[3][6:].replace(": ", "/")
 			extra[name] = rawblob(ent[2])
-	if mtree:
-		return Ctree(sha, nodeid, mtree, extra)
-	if ftree:
-		return Mtree(sha, nodeid, ftree)
-	return Ftree(sha, nodeid, extra)
+		elif ent[3].startswith("file/") and ent[3].endswith("/node"):
+			path = ent[3][5:-5]
+			files[path] = rawblob(ent[2])
+	if mytype == "commit":
+		return Ctree(sha, node, mf, extra)
+	if mytype == "tree":
+		return Mtree(sha, files)
+	assert mytype == "blob", "CMFtree missing type (%s)" % treesha
+	return Ftree(sha, extra)
 
 class RevMap(object):
 	def __init__(self, ref):
